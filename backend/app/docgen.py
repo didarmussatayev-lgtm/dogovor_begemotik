@@ -230,6 +230,108 @@ def generate_docx(
     return docx_path
 
 
+def generate_begemotik_docx(
+    template_path: str | Path,
+    iin: str,
+    surname: str,
+    name: str,
+    last_name: str,
+    gender: str,
+    birthdate: str,
+    phone: str,
+    has_kinship: bool,
+    surname_kinship: str,
+    name_kinship: str,
+    last_name_kinship: str,
+    degree_of_kinship: str,
+    allergy_value: str,
+    no_allergy_value: str,
+    procedure: str,
+    signature_base64: str,
+    agreement_id: str,
+    output_basename: str,
+    output_dir: str | Path,
+) -> Path:
+    """Fill begemotik_template.docx and return path to generated DOCX."""
+    normalized_template_path, suspicious_placeholders = _prepare_template_for_render(
+        template_path=template_path,
+        output_dir=output_dir,
+        output_basename=output_basename,
+    )
+    tpl = DocxTemplate(normalized_template_path)
+
+    sig_bytes = _decode_signature(signature_base64)
+    sig_tmp = Path(output_dir) / f"{agreement_id}_sig.png"
+    sig_tmp.write_bytes(sig_bytes)
+
+    now = datetime.now()
+
+    # Build full names
+    patient_full_name = " ".join(filter(None, [surname, name, last_name]))
+    rep_full_name = " ".join(filter(None, [surname_kinship, name_kinship, last_name_kinship])) if has_kinship else ""
+
+    # name_surname_kinship: FIO of the patient being represented (used in consent sentence)
+    name_surname_kinship = patient_full_name if has_kinship else ""
+
+    # patient / kinship fields (only one filled at a time)
+    if has_kinship:
+        patient_field = ""
+        kinship_field = rep_full_name
+    else:
+        patient_field = patient_full_name
+        kinship_field = ""
+
+    # signature_kinship: representative's FIO when present, else empty
+    signature_kinship = rep_full_name if has_kinship else ""
+
+    context = {
+        "iin": iin,
+        "surname": surname,
+        "name": name,
+        "last_name": last_name,
+        "gender": gender,
+        "birthdate": birthdate,
+        "phone": phone,
+        # kinship
+        "surname_kinship": surname_kinship,
+        "name_kinship": name_kinship,
+        "last_name_kinship": last_name_kinship,
+        "degree_of_kinship": degree_of_kinship,
+        "name_surname_kinship": name_surname_kinship,
+        "signature_kinship": signature_kinship,
+        # patient / kinship signer disambiguation
+        "patient": patient_field,
+        "kinship": kinship_field,
+        # allergy
+        "allergy": allergy_value,
+        "no_allergy": no_allergy_value,
+        # procedure
+        "procedure": procedure,
+        # date/time
+        "date": now.strftime("%d.%m.%Y"),
+        "full_date": now.strftime("%d.%m.%Y %H:%M"),
+        "agreement_id": agreement_id,
+        # signature image
+        "signature": InlineImage(tpl, str(sig_tmp), width=Mm(50)),
+    }
+
+    try:
+        tpl.render(context)
+    except TemplateSyntaxError as exc:
+        hint = ""
+        if suspicious_placeholders:
+            hint = (
+                f" Likely invalid placeholder(s): {', '.join(suspicious_placeholders[:3])}. "
+                "Use ASCII underscore keys like {{ birth_date }} or {{ gender }}."
+            )
+        raise RuntimeError(f"Template syntax error in {Path(template_path).name}: {exc}.{hint}") from exc
+
+    docx_path = Path(output_dir) / f"{output_basename}.docx"
+    tpl.save(str(docx_path))
+    logger.info("Begemotik DOCX generated: %s", docx_path)
+    return docx_path
+
+
 def convert_to_pdf(docx_path: Path, output_dir: Path) -> Path:
     """Convert a DOCX file to PDF using LibreOffice headless."""
     cmd = [
