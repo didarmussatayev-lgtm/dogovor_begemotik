@@ -1,28 +1,172 @@
 // BACKEND_URL is defined in config.js — change it to your deployed FastAPI URL
 
-const SEDATION_PROCEDURE = 'Терапия - лечение под седацией (севоран)';
-const IMPLANT_PROCEDURES = new Set([
-  'Имплантация - Договор на имплантацию',
-  'Имплантация - Дополнительное соглашение к договору имплантации о гарантии',
-]);
-const CHILD_DEGREE_VALUES = new Set([
-  'на моего ребенка',
-  'на лицо, чьим законным представителем я являюсь',
-]);
+// ── i18n ──────────────────────────────────────────────────────────────────
+const I18N = {
+  ru: {
+    start: 'НАЧАТЬ',
+    formTitle: 'Заполнение согласия',
+    sectionPatient: 'Основная информация о пациенте',
+    labelIIN: 'ИИН',
+    labelSurname: 'Фамилия',
+    labelName: 'Имя',
+    labelLastName: 'Отчество (если имеется)',
+    labelGender: 'Пол',
+    genderPlaceholder: 'Выберите пол',
+    genderMale: 'мужской',
+    genderFemale: 'женский',
+    labelBirthdate: 'Дата рождения',
+    labelPhone: 'Телефон',
+    labelHasKinship: 'Законный представитель пациента',
+    labelSurnameKinship: 'Фамилия представителя',
+    labelNameKinship: 'Имя представителя',
+    labelLastNameKinship: 'Отчество представителя (если имеется)',
+    labelDegreeKinship: 'Степень родства',
+    degreeKinshipPlaceholder: 'Выберите степень родства',
+    degreeKinshipChild: 'ребенок',
+    degreeKinshipRep: 'лицо, чьим законным представителем я являюсь',
+    labelHasAllergy: 'Есть аллергия',
+    labelAllergyText: 'Укажите аллергию',
+    labelProcedure: 'Проводимые процедуры',
+    labelSignature: 'Подпись',
+    hintSignature: 'Нарисуйте подпись в поле ниже',
+    btnClearSig: 'Очистить',
+    labelConsentFacsimile: 'Даю согласие на использование факсимиле',
+    labelConsentPersonal: 'Даю согласие на сбор персональных данных',
+    btnBack: 'НАЗАД',
+    btnNext: 'ДАЛЕЕ',
+    btnSign: 'ПОДПИСАТЬ',
+    loadingTitle: 'Формируем соглашение…',
+    loadingSubtitle: 'Обычно это занимает меньше минуты',
+    // validation errors
+    errIINRequired: 'Введите ИИН',
+    errIINFormat: 'ИИН должен содержать 12 цифр',
+    errSurnameRequired: 'Введите фамилию',
+    errCyrillic: 'Должно содержать только кириллические буквы',
+    errNameRequired: 'Введите имя',
+    errGenderRequired: 'Выберите пол',
+    errBirthdateRequired: 'Введите дату рождения',
+    errBirthdateFormat: 'Формат: ДД.ММ.ГГГГ',
+    errBirthdateFuture: 'Дата не может быть в будущем',
+    errPhoneRequired: 'Введите телефон',
+    errPhoneFormat: 'Формат: +7 (7XX) XXX-XX-XX',
+    errKinshipSurnameRequired: 'Введите фамилию представителя',
+    errKinshipNameRequired: 'Введите имя представителя',
+    errDegreeRequired: 'Выберите степень родства',
+    errAllergyRequired: 'Укажите аллергию',
+    errProcedureRequired: 'Укажите процедуру',
+    errSignatureRequired: 'Нарисуйте подпись',
+  },
+  kz: {
+    start: 'БАСТАУ',
+    formTitle: 'Келісімді толтыру',
+    sectionPatient: 'Пациент туралы негізгі ақпарат',
+    labelIIN: 'ЖСН',
+    labelSurname: 'Тегі',
+    labelName: 'Аты',
+    labelLastName: 'Әкесінің аты (болса)',
+    labelGender: 'Жынысы',
+    genderPlaceholder: 'Жынысты таңдаңыз',
+    genderMale: 'еркек',
+    genderFemale: 'әйел',
+    labelBirthdate: 'Туған күні',
+    labelPhone: 'Телефон',
+    labelHasKinship: 'Пациенттің заңды өкілі',
+    labelSurnameKinship: 'Өкілдің тегі',
+    labelNameKinship: 'Өкілдің аты',
+    labelLastNameKinship: 'Өкілдің әкесінің аты (болса)',
+    labelDegreeKinship: 'Туыстық дәрежесі',
+    degreeKinshipPlaceholder: 'Туыстық дәрежесін таңдаңыз',
+    degreeKinshipChild: 'бала',
+    degreeKinshipRep: 'заңды өкілі болып табылатын тұлға',
+    labelHasAllergy: 'Аллергия бар',
+    labelAllergyText: 'Аллергияны көрсетіңіз',
+    labelProcedure: 'Жүргізілетін процедуралар',
+    labelSignature: 'Қол қою',
+    hintSignature: 'Төмендегі өріске қол қойыңыз',
+    btnClearSig: 'Тазалау',
+    labelConsentFacsimile: 'Факсимиле пайдалануға келісемін',
+    labelConsentPersonal: 'Жеке деректерді жинауға келісемін',
+    btnBack: 'АРТҚА',
+    btnNext: 'КЕЛЕСІ',
+    btnSign: 'ҚОЛ ҚОЮ',
+    loadingTitle: 'Келісімді дайындаудамыз…',
+    loadingSubtitle: 'Бұл бір минуттан аз уақытты алады',
+    errIINRequired: 'ЖСН енгізіңіз',
+    errIINFormat: 'ЖСН 12 саннан тұруы тиіс',
+    errSurnameRequired: 'Тегіңізді енгізіңіз',
+    errCyrillic: 'Тек кириллица әріптерін қолданыңыз',
+    errNameRequired: 'Атыңызды енгізіңіз',
+    errGenderRequired: 'Жынысты таңдаңыз',
+    errBirthdateRequired: 'Туған күнін енгізіңіз',
+    errBirthdateFormat: 'Формат: КК.АА.ЖЖЖЖ',
+    errBirthdateFuture: 'Күн болашақта болмауы тиіс',
+    errPhoneRequired: 'Телефонды енгізіңіз',
+    errPhoneFormat: 'Формат: +7 (7XX) XXX-XX-XX',
+    errKinshipSurnameRequired: 'Өкілдің тегін енгізіңіз',
+    errKinshipNameRequired: 'Өкілдің атын енгізіңіз',
+    errDegreeRequired: 'Туыстық дәрежесін таңдаңыз',
+    errAllergyRequired: 'Аллергияны көрсетіңіз',
+    errProcedureRequired: 'Процедураны көрсетіңіз',
+    errSignatureRequired: 'Қол қойыңыз',
+  },
+};
 
+let currentLang = 'ru';
+
+function t(key) {
+  return (I18N[currentLang] && I18N[currentLang][key]) || I18N.ru[key] || key;
+}
+
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    const key = el.getAttribute('data-i18n');
+    const val = t(key);
+    if (el.tagName === 'OPTION') {
+      el.textContent = val;
+    } else if (el.tagName === 'BUTTON' || el.tagName === 'LABEL' || el.tagName === 'H2' || el.tagName === 'H3' || el.tagName === 'P') {
+      // For labels that contain child elements, only update the text node
+      const firstTextNode = [...el.childNodes].find((n) => n.nodeType === Node.TEXT_NODE);
+      if (firstTextNode) {
+        firstTextNode.textContent = val;
+      } else {
+        el.textContent = val;
+      }
+    } else {
+      el.textContent = val;
+    }
+  });
+  // Update gender option values to match current language mapping (keep internal values)
+  // Language switch only changes display text, internal values stay in Russian for backend
+}
+
+// ── State ─────────────────────────────────────────────────────────────────
 let currentStep = 1;
-let visibleContacts = 1;
 let canvas;
 let ctx;
 let isDrawing = false;
 let hasSignature = false;
 
+// ── Init ──────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  initLangSwitcher();
   initModal();
   initCanvas();
   initListeners();
   showStep(1);
+  applyI18n();
 });
+
+function initLangSwitcher() {
+  document.getElementById('langRU')?.addEventListener('click', () => setLang('ru'));
+  document.getElementById('langKZ')?.addEventListener('click', () => setLang('kz'));
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  document.getElementById('langRU').classList.toggle('active', lang === 'ru');
+  document.getElementById('langKZ').classList.toggle('active', lang === 'kz');
+  applyI18n();
+}
 
 function initModal() {
   const startBtn = document.getElementById('startBtn');
@@ -55,108 +199,49 @@ function initListeners() {
   document.getElementById('backStep2')?.addEventListener('click', () => showStep(1));
   document.getElementById('backStep3')?.addEventListener('click', () => showStep(2));
 
-  document.querySelectorAll('input[name="degreeOfKinship"]').forEach((radio) => {
-    radio.addEventListener('change', () => {
-      toggleChildFields();
-      toggleDynamicStep3Fields();
-      setError('degree-of-kinship-error', '');
-    });
-  });
-
-  document.getElementById('procedure')?.addEventListener('change', () => {
-    setFieldError('procedure', 'procedure-error', '');
-    toggleDynamicStep3Fields();
-  });
+  document.getElementById('hasKinship')?.addEventListener('change', toggleKinshipFields);
+  document.getElementById('hasAllergy')?.addEventListener('change', toggleAllergyField);
 
   document.getElementById('iin')?.addEventListener('input', handleIINInput);
-  document.getElementById('idNumber')?.addEventListener('input', handleIdNumberInput);
+  document.getElementById('birthdate')?.addEventListener('input', handleBirthdateInput);
 
   document.querySelectorAll('.phone-input').forEach((input) => {
     input.addEventListener('input', handlePhoneInput);
   });
-
-  document.getElementById('addContactBtn')?.addEventListener('click', addContact);
-  document.getElementById('consentCheckbox')?.addEventListener('change', () => setError('consent-error', ''));
 
   document.getElementById('consentForm')?.addEventListener('submit', handleSubmit);
 }
 
 function resetWizardState() {
   currentStep = 1;
-  visibleContacts = 1;
   document.getElementById('consentForm')?.reset();
   clearSignature();
   document.getElementById('errorMessage').style.display = 'none';
   document.getElementById('errorMessage').textContent = '';
-  document.getElementById('addContactBtn').style.display = 'inline-block';
-  document.querySelectorAll('.contact-row[data-contact="2"], .contact-row[data-contact="3"]').forEach((row) => {
-    row.style.display = 'none';
-  });
-  toggleChildFields();
-  toggleDynamicStep3Fields();
+  toggleKinshipFields();
+  toggleAllergyField();
 }
 
 function showStep(step) {
   currentStep = step;
-  const title = document.getElementById('stepTitle');
   document.getElementById('step1').style.display = step === 1 ? 'block' : 'none';
   document.getElementById('step2').style.display = step === 2 ? 'block' : 'none';
   document.getElementById('step3').style.display = step === 3 ? 'block' : 'none';
 
-  if (step === 1) title.textContent = 'Шаг 1: Выбор типа согласия';
-  if (step === 2) title.textContent = 'Шаг 2: Выбор услуги';
-  if (step === 3) title.textContent = 'Шаг 3: Данные и подпись';
-
-  if (step === 3) {
-    toggleDynamicStep3Fields();
-    resizeCanvas();
-  }
+  if (step === 3) resizeCanvas();
 }
 
-function getSelectedDegreeOfKinship() {
-  return document.querySelector('input[name="degreeOfKinship"]:checked')?.value ?? '';
+function toggleKinshipFields() {
+  const checked = document.getElementById('hasKinship')?.checked ?? false;
+  document.getElementById('kinshipFields').style.display = checked ? 'block' : 'none';
 }
 
-function isChildFlow() {
-  return CHILD_DEGREE_VALUES.has(getSelectedDegreeOfKinship());
+function toggleAllergyField() {
+  const checked = document.getElementById('hasAllergy')?.checked ?? false;
+  document.getElementById('allergyField').style.display = checked ? 'block' : 'none';
 }
 
-function toggleChildFields() {
-  const show = isChildFlow();
-  document.getElementById('childFields').style.display = show ? 'block' : 'none';
-}
-
-function toggleDynamicStep3Fields() {
-  const procedure = document.getElementById('procedure')?.value ?? '';
-  const childFlow = isChildFlow();
-  
-  document.getElementById('implantFields').style.display = IMPLANT_PROCEDURES.has(procedure) ? 'block' : 'none';
-  document.getElementById('sedationChildFields').style.display = (procedure === SEDATION_PROCEDURE) ? 'block' : 'none';
-  const relationGroup = document.getElementById('sedationRelation')?.closest('.form-group');
-  if (relationGroup) {
-    relationGroup.style.display = (procedure === SEDATION_PROCEDURE && childFlow) ? 'block' : 'none';
-  }
-  if (!childFlow) {
-    const relationInput = document.getElementById('sedationRelation');
-    if (relationInput) relationInput.value = ''; // автоматически очищаем поле
-  }
-}
-
-function addContact() {
-  if (visibleContacts >= 3) return;
-  visibleContacts += 1;
-  const row = document.querySelector(`.contact-row[data-contact="${visibleContacts}"]`);
-  if (row) row.style.display = 'grid';
-  if (visibleContacts >= 3) {
-    document.getElementById('addContactBtn').style.display = 'none';
-  }
-}
-
-function setError(id, message) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = message;
-}
-
+// ── Validation helpers ────────────────────────────────────────────────────
 function setFieldError(inputId, errorId, message) {
   const input = document.getElementById(inputId);
   const error = document.getElementById(errorId);
@@ -164,219 +249,120 @@ function setFieldError(inputId, errorId, message) {
   if (error) error.textContent = message;
 }
 
-function validateName(value) {
+function validateCyrillic(value) {
   return /^[А-Яа-яЁёӘәҒғҚқҢңӨөҰұҮүҺһІі\s\-]+$/.test(value);
 }
 
-function validatePhoneById(inputId, errorId, required = true) {
-  const value = document.getElementById(inputId)?.value.trim() ?? '';
-  if (!value) {
-    setFieldError(inputId, errorId, required ? 'Введите телефон' : '');
-    return !required;
+function validateStep1() {
+  let ok = true;
+
+  const iin = document.getElementById('iin')?.value.trim() ?? '';
+  if (!iin) { setFieldError('iin', 'iin-error', t('errIINRequired')); ok = false; }
+  else if (!/^\d{12}$/.test(iin)) { setFieldError('iin', 'iin-error', t('errIINFormat')); ok = false; }
+  else setFieldError('iin', 'iin-error', '');
+
+  const surname = document.getElementById('surname')?.value.trim() ?? '';
+  if (!surname) { setFieldError('surname', 'surname-error', t('errSurnameRequired')); ok = false; }
+  else if (!validateCyrillic(surname)) { setFieldError('surname', 'surname-error', t('errCyrillic')); ok = false; }
+  else setFieldError('surname', 'surname-error', '');
+
+  const name = document.getElementById('name')?.value.trim() ?? '';
+  if (!name) { setFieldError('name', 'name-error', t('errNameRequired')); ok = false; }
+  else if (!validateCyrillic(name)) { setFieldError('name', 'name-error', t('errCyrillic')); ok = false; }
+  else setFieldError('name', 'name-error', '');
+
+  const lastName = document.getElementById('last_name')?.value.trim() ?? '';
+  if (lastName && !validateCyrillic(lastName)) { setFieldError('last_name', 'last_name-error', t('errCyrillic')); ok = false; }
+  else setFieldError('last_name', 'last_name-error', '');
+
+  const gender = document.getElementById('gender')?.value ?? '';
+  if (!gender) { setFieldError('gender', 'gender-error', t('errGenderRequired')); ok = false; }
+  else setFieldError('gender', 'gender-error', '');
+
+  const birthdate = document.getElementById('birthdate')?.value.trim() ?? '';
+  if (!birthdate) { setFieldError('birthdate', 'birthdate-error', t('errBirthdateRequired')); ok = false; }
+  else if (!isValidBirthdate(birthdate)) { setFieldError('birthdate', 'birthdate-error', t('errBirthdateFormat')); ok = false; }
+  else if (isBirthdateFuture(birthdate)) { setFieldError('birthdate', 'birthdate-error', t('errBirthdateFuture')); ok = false; }
+  else setFieldError('birthdate', 'birthdate-error', '');
+
+  if (!validatePhoneById('phone', 'phone-error')) ok = false;
+
+  if (document.getElementById('hasKinship')?.checked) {
+    const sk = document.getElementById('surname_kinship')?.value.trim() ?? '';
+    if (!sk) { setFieldError('surname_kinship', 'surname_kinship-error', t('errKinshipSurnameRequired')); ok = false; }
+    else if (!validateCyrillic(sk)) { setFieldError('surname_kinship', 'surname_kinship-error', t('errCyrillic')); ok = false; }
+    else setFieldError('surname_kinship', 'surname_kinship-error', '');
+
+    const nk = document.getElementById('name_kinship')?.value.trim() ?? '';
+    if (!nk) { setFieldError('name_kinship', 'name_kinship-error', t('errKinshipNameRequired')); ok = false; }
+    else if (!validateCyrillic(nk)) { setFieldError('name_kinship', 'name_kinship-error', t('errCyrillic')); ok = false; }
+    else setFieldError('name_kinship', 'name_kinship-error', '');
+
+    const lnk = document.getElementById('last_name_kinship')?.value.trim() ?? '';
+    if (lnk && !validateCyrillic(lnk)) { setFieldError('last_name_kinship', 'last_name_kinship-error', t('errCyrillic')); ok = false; }
+    else setFieldError('last_name_kinship', 'last_name_kinship-error', '');
+
+    const deg = document.getElementById('degree_of_kinship')?.value ?? '';
+    if (!deg) { setFieldError('degree_of_kinship', 'degree_of_kinship-error', t('errDegreeRequired')); ok = false; }
+    else setFieldError('degree_of_kinship', 'degree_of_kinship-error', '');
   }
 
-  const digits = value.replace(/\D/g, '');
-  const ok = /^77\d{9}$/.test(digits);
-  setFieldError(inputId, errorId, ok ? '' : 'Формат: +7 (7XX) XXX-XX-XX');
   return ok;
 }
 
-function validateDateById(inputId, errorId, required = true) {
-  const value = document.getElementById(inputId)?.value ?? '';
-  if (!value) {
-    setFieldError(inputId, errorId, required ? 'Введите дату' : '');
-    return !required;
-  }
-
-  const chosen = new Date(value);
-  const now = new Date();
-  if (Number.isNaN(chosen.getTime()) || chosen > now) {
-    setFieldError(inputId, errorId, 'Дата не может быть в будущем');
-    return false;
-  }
-
-  setFieldError(inputId, errorId, '');
-  return true;
-}
-
-function validateStep1() {
-  const degreeOfKinship = getSelectedDegreeOfKinship();
-  if (!degreeOfKinship) setError('degree-of-kinship-error', 'Выберите тип согласия');
-
-  const fio = document.getElementById('fio')?.value.trim() ?? '';
-  if (!fio) {
-    setFieldError('fio', 'fio-error', 'Введите ФИО');
-  } else if (!validateName(fio)) {
-    setFieldError('fio', 'fio-error', 'ФИО должно содержать только кириллические буквы');
-  } else {
-    setFieldError('fio', 'fio-error', '');
-  }
-
-  const iin = document.getElementById('iin')?.value.trim() ?? '';
-  if (!iin) {
-    setFieldError('iin', 'iin-error', 'Введите ИИН');
-  } else if (!/^\d{12}$/.test(iin)) {
-    setFieldError('iin', 'iin-error', 'ИИН должен содержать 12 цифр');
-  } else {
-    setFieldError('iin', 'iin-error', '');
-  }
-
-  const phoneOk = validatePhoneById('phone', 'phone-error');
-
-  let childOk = true;
-  if (isChildFlow()) {
-    const childFio = document.getElementById('childFio')?.value.trim() ?? '';
-    if (!childFio) {
-      setFieldError('childFio', 'child-fio-error', 'Введите ФИО ребенка/подопечного');
-      childOk = false;
-    } else {
-      setFieldError('childFio', 'child-fio-error', '');
-    }
-
-    const relationship = document.getElementById('guardianRelationship')?.value ?? '';
-    if (!relationship) {
-      setFieldError('guardianRelationship', 'guardian-relationship-error', 'Выберите степень родства');
-      childOk = false;
-    } else {
-      setFieldError('guardianRelationship', 'guardian-relationship-error', '');
-    }
-
-    if (!validateDateById('childBirthDate', 'child-birth-date-error')) childOk = false;
-  } else {
-    setFieldError('childFio', 'child-fio-error', '');
-    setFieldError('guardianRelationship', 'guardian-relationship-error', '');
-    setFieldError('childBirthDate', 'child-birth-date-error', '');
-  }
-
-  return !!(degreeOfKinship && fio && /^\d{12}$/.test(iin) && phoneOk && childOk);
-}
-
 function validateStep2() {
-  const procedure = document.getElementById('procedure')?.value.trim() ?? '';
-  if (!procedure) {
-    setFieldError('procedure', 'procedure-error', 'Выберите процедуру');
-    return false;
+  let ok = true;
+
+  if (document.getElementById('hasAllergy')?.checked) {
+    const allergyText = document.getElementById('allergyText')?.value.trim() ?? '';
+    if (!allergyText) { setFieldError('allergyText', 'allergyText-error', t('errAllergyRequired')); ok = false; }
+    else setFieldError('allergyText', 'allergyText-error', '');
+  } else {
+    setFieldError('allergyText', 'allergyText-error', '');
   }
-  setFieldError('procedure', 'procedure-error', '');
-  return true;
+
+  const procedure = document.getElementById('procedure')?.value.trim() ?? '';
+  if (!procedure) { setFieldError('procedure', 'procedure-error', t('errProcedureRequired')); ok = false; }
+  else setFieldError('procedure', 'procedure-error', '');
+
+  return ok;
 }
 
 function validateStep3() {
-  const allergy = document.getElementById('allergy')?.value.trim() ?? '';
-  if (!allergy) {
-    setFieldError('allergy', 'allergy-error', 'Заполните поле или напишите НЕТ');
+  let ok = true;
+  if (!hasSignature) {
+    document.getElementById('signature-error').textContent = t('errSignatureRequired');
+    ok = false;
   } else {
-    setFieldError('allergy', 'allergy-error', '');
+    document.getElementById('signature-error').textContent = '';
   }
+  return ok;
+}
 
-  const procedure = document.getElementById('procedure')?.value ?? '';
-
-  let implantOk = true;
-  if (IMPLANT_PROCEDURES.has(procedure)) {
-    const idNumber = document.getElementById('idNumber')?.value.trim() ?? '';
-    if (!/^\d{9}$/.test(idNumber)) {
-      setFieldError('idNumber', 'id-number-error', 'ID номер должен содержать 9 цифр');
-      implantOk = false;
-    } else {
-      setFieldError('idNumber', 'id-number-error', '');
-    }
-
-    const idAuthority = document.getElementById('idAuthority')?.value.trim() ?? '';
-    if (!idAuthority) {
-      setFieldError('idAuthority', 'id-authority-error', 'Введите орган выдачи');
-      implantOk = false;
-    } else {
-      setFieldError('idAuthority', 'id-authority-error', '');
-    }
-
-    if (!validateDateById('idIssueDate', 'id-issue-date-error')) implantOk = false;
-
-    const address = document.getElementById('address')?.value.trim() ?? '';
-    if (!address) {
-      setFieldError('address', 'address-error', 'Введите адрес проживания');
-      implantOk = false;
-    } else {
-      setFieldError('address', 'address-error', '');
-    }
-  } else {
-    setFieldError('idNumber', 'id-number-error', '');
-    setFieldError('idAuthority', 'id-authority-error', '');
-    setFieldError('idIssueDate', 'id-issue-date-error', '');
-    setFieldError('address', 'address-error', '');
+// ── Input handlers ────────────────────────────────────────────────────────
+function validatePhoneById(inputId, errorId, required = true) {
+  const value = document.getElementById(inputId)?.value.trim() ?? '';
+  if (!value) {
+    setFieldError(inputId, errorId, required ? t('errPhoneRequired') : '');
+    return !required;
   }
-
-  let sedationOk = true;
-  if (procedure === SEDATION_PROCEDURE ) {
-    if (isChildFlow()) {
-    const sedationRelation = document.getElementById('sedationRelation')?.value ?? '';
-    if (!sedationRelation) {
-      setFieldError('sedationRelation', 'sedation-relation-error', 'Выберите степень родства');
-      sedationOk = false;
-    } else {
-      setFieldError('sedationRelation', 'sedation-relation-error', '');
-    }  
-  } else {
-    setFieldError('sedationRelation', 'sedation-relation-error', '');
-  }
-
-    const contactName1 = document.getElementById('contactName1')?.value.trim() ?? '';
-    if (!contactName1) {
-      setFieldError('contactName1', 'contact-name-1-error', 'Введите ФИО контактного лица');
-      sedationOk = false;
-    } else {
-      setFieldError('contactName1', 'contact-name-1-error', '');
-    }
-    if (!validatePhoneById('contactPhone1', 'contact-phone-1-error')) sedationOk = false;
-
-    for (let i = 2; i <= visibleContacts; i += 1) {
-      const nameId = `contactName${i}`;
-      const phoneId = `contactPhone${i}`;
-      const nameErrorId = `contact-name-${i}-error`;
-      const phoneErrorId = `contact-phone-${i}-error`;
-      const name = document.getElementById(nameId)?.value.trim() ?? '';
-      const phone = document.getElementById(phoneId)?.value.trim() ?? '';
-      const filled = !!(name || phone);
-
-      if (filled && !name) {
-        setFieldError(nameId, nameErrorId, 'Введите ФИО контактного лица');
-        sedationOk = false;
-      } else {
-        setFieldError(nameId, nameErrorId, '');
-      }
-
-      if (filled && !validatePhoneById(phoneId, phoneErrorId, true)) sedationOk = false;
-      if (!filled) setFieldError(phoneId, phoneErrorId, '');
-    }
-  } else {
-    setFieldError('sedationRelation', 'sedation-relation-error', '');
-    for (let i = 1; i <= 3; i += 1) {
-      setFieldError(`contactName${i}`, `contact-name-${i}-error`, '');
-      setFieldError(`contactPhone${i}`, `contact-phone-${i}-error`, '');
-    }
-  }
-
-  const consentChecked = document.getElementById('consentCheckbox')?.checked ?? false;
-  setError('consent-error', consentChecked ? '' : 'Необходимо дать согласие на обработку персональных данных');
-
-  setError('signature-error', hasSignature ? '' : 'Нарисуйте подпись');
-
-  return !!(allergy && implantOk && sedationOk && consentChecked && hasSignature);
+  const digits = value.replace(/\D/g, '');
+  const ok = /^77\d{9}$/.test(digits);
+  setFieldError(inputId, errorId, ok ? '' : t('errPhoneFormat'));
+  return ok;
 }
 
 function handlePhoneInput(e) {
   const input = e.target;
   let digits = input.value.replace(/\D/g, '');
-
   if (digits.startsWith('8')) digits = `7${digits.slice(1)}`;
   if (!digits.startsWith('7')) digits = `7${digits}`;
   digits = digits.slice(0, 11);
-
   let formatted = '+7';
   if (digits.length > 1) formatted += ` (${digits.slice(1, Math.min(4, digits.length))}`;
   if (digits.length >= 4) formatted += `) ${digits.slice(4, Math.min(7, digits.length))}`;
   if (digits.length >= 7) formatted += `-${digits.slice(7, Math.min(9, digits.length))}`;
   if (digits.length >= 9) formatted += `-${digits.slice(9, 11)}`;
-
   input.value = formatted;
 }
 
@@ -384,14 +370,27 @@ function handleIINInput(e) {
   e.target.value = e.target.value.replace(/\D/g, '').slice(0, 12);
 }
 
-function handleIdNumberInput(e) {
-  e.target.value = e.target.value.replace(/\D/g, '').slice(0, 9);
+function handleBirthdateInput(e) {
+  let v = e.target.value.replace(/\D/g, '').slice(0, 8);
+  if (v.length > 4) v = `${v.slice(0, 2)}.${v.slice(2, 4)}.${v.slice(4)}`;
+  else if (v.length > 2) v = `${v.slice(0, 2)}.${v.slice(2)}`;
+  e.target.value = v;
 }
 
+function isValidBirthdate(value) {
+  return /^\d{2}\.\d{2}\.\d{4}$/.test(value);
+}
+
+function isBirthdateFuture(value) {
+  const [dd, mm, yyyy] = value.split('.');
+  const d = new Date(`${yyyy}-${mm}-${dd}`);
+  return !isNaN(d.getTime()) && d > new Date();
+}
+
+// ── Canvas / Signature ────────────────────────────────────────────────────
 function initCanvas() {
   canvas = document.getElementById('signatureCanvas');
   if (!canvas) return;
-
   ctx = canvas.getContext('2d');
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
@@ -400,7 +399,6 @@ function initCanvas() {
   canvas.addEventListener('mousemove', continueDraw);
   canvas.addEventListener('mouseup', endDraw);
   canvas.addEventListener('mouseleave', endDraw);
-
   canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
   canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
   canvas.addEventListener('touchend', endDraw);
@@ -443,9 +441,7 @@ function continueDraw(e) {
   }
 }
 
-function endDraw() {
-  isDrawing = false;
-}
+function endDraw() { isDrawing = false; }
 
 function handleTouchStart(e) {
   e.preventDefault();
@@ -469,61 +465,47 @@ function clearSignature() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   hasSignature = false;
   canvas.classList.remove('has-signature');
-  setError('signature-error', '');
+  document.getElementById('signature-error').textContent = '';
 }
 
 function getSignatureBase64() {
   return canvas.toDataURL('image/png');
 }
 
+// ── Submit ────────────────────────────────────────────────────────────────
 async function handleSubmit(e) {
   e.preventDefault();
-
   if (!validateStep3()) return;
 
   const submitBtn = document.getElementById('finishBtn');
   const errorBox = document.getElementById('errorMessage');
   errorBox.style.display = 'none';
-
   submitBtn.disabled = true;
   showLoadingModal();
 
-  const childFlow = isChildFlow();
-  const procedure = document.getElementById('procedure').value.trim();
+  const hasKinship = document.getElementById('hasKinship')?.checked ?? false;
+  const hasAllergy = document.getElementById('hasAllergy')?.checked ?? false;
+  const allergyText = document.getElementById('allergyText')?.value.trim() ?? '';
 
   const payload = {
-    full_name: document.getElementById('fio').value.trim(),
-    phone: document.getElementById('phone').value.trim(),
     iin: document.getElementById('iin').value.trim(),
-    procedure,
-    allergy: document.getElementById('allergy').value.trim(),
+    surname: document.getElementById('surname').value.trim(),
+    name: document.getElementById('name').value.trim(),
+    last_name: document.getElementById('last_name').value.trim(),
+    gender: document.getElementById('gender').value,
+    birthdate: document.getElementById('birthdate').value.trim(),
+    phone: document.getElementById('phone').value.trim(),
+    has_kinship: hasKinship,
+    surname_kinship: hasKinship ? document.getElementById('surname_kinship').value.trim() : '',
+    name_kinship: hasKinship ? document.getElementById('name_kinship').value.trim() : '',
+    last_name_kinship: hasKinship ? document.getElementById('last_name_kinship').value.trim() : '',
+    degree_of_kinship: hasKinship ? document.getElementById('degree_of_kinship').value : '',
+    has_allergy: hasAllergy,
+    allergy_text: hasAllergy ? allergyText : '',
+    procedure: document.getElementById('procedure').value.trim(),
     signature_base64: getSignatureBase64(),
-    degree_of_kinship: getSelectedDegreeOfKinship(),
-    guardian_relationship: childFlow ? document.getElementById('guardianRelationship').value : '',
-    name_surname_of_child: childFlow ? document.getElementById('childFio').value.trim() : '',
-    name_surname_patient: childFlow ? document.getElementById('childFio').value.trim() : '',
-    date_of_birth: childFlow ? document.getElementById('childBirthDate').value : null,
-    id_number: IMPLANT_PROCEDURES.has(procedure) ? document.getElementById('idNumber').value.trim() : '',
-    id_authority: IMPLANT_PROCEDURES.has(procedure) ? document.getElementById('idAuthority').value.trim() : '',
-    id_date_of_issue: IMPLANT_PROCEDURES.has(procedure) ? document.getElementById('idIssueDate').value : null,
-    adress: IMPLANT_PROCEDURES.has(procedure) ? document.getElementById('address').value.trim() : '',
-    degree_of_kinship_mother_father_guardin: (procedure === SEDATION_PROCEDURE)
-      ? document.getElementById('sedationRelation').value
-      : '',
-    contact_name_surname_1: (procedure === SEDATION_PROCEDURE ) ? document.getElementById('contactName1').value.trim() : '',
-    contact_phones_1: (procedure === SEDATION_PROCEDURE ) ? document.getElementById('contactPhone1').value.trim() : '',
-    contact_name_surname_2: (procedure === SEDATION_PROCEDURE  && visibleContacts >= 2)
-      ? document.getElementById('contactName2').value.trim()
-      : '',
-    contact_phones_2: (procedure === SEDATION_PROCEDURE  && visibleContacts >= 2)
-      ? document.getElementById('contactPhone2').value.trim()
-      : '',
-    contact_name_surname_3: (procedure === SEDATION_PROCEDURE  && visibleContacts >= 3)
-      ? document.getElementById('contactName3').value.trim()
-      : '',
-    contact_phones_3: (procedure === SEDATION_PROCEDURE  && visibleContacts >= 3)
-      ? document.getElementById('contactPhone3').value.trim()
-      : '',
+    consent_facsimile: document.getElementById('consentFacsimile')?.checked ?? false,
+    consent_personal_data: document.getElementById('consentPersonal')?.checked ?? false,
   };
 
   try {
@@ -548,11 +530,13 @@ async function handleSubmit(e) {
     a.href = url;
     const disposition = response.headers.get('Content-Disposition') ?? '';
     const match = disposition.match(/filename[^;=\n]*=(['"]?)([^'";\n]+)\1/);
-    a.download = match ? match[2] : 'Vienna_Dental.pdf';
+    a.download = match ? match[2] : 'Begemotik_consent.docx';
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+
+    document.getElementById('formModal').style.display = 'none';
   } catch (err) {
     console.error(err);
     errorBox.textContent = err.message || 'Произошла неизвестная ошибка. Попробуйте ещё раз.';
@@ -570,3 +554,4 @@ function showLoadingModal() {
 function hideLoadingModal() {
   document.getElementById('loadingModal').style.display = 'none';
 }
+

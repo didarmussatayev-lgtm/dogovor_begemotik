@@ -12,9 +12,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from .config import settings
-from .docgen import convert_to_pdf, generate_docx
+from .docgen import convert_to_pdf, generate_begemotik_docx
 from .drive import build_patient_filename_base, upload_documents
-from .models import AgreementRequest
+from .models import BegemotikAgreementRequest
 from .reminders import handle_incoming_whatsapp, start_scheduler
 from .reminders import send_daily_reminders 
 #удалить строку выше
@@ -23,103 +23,11 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s — %(message)s",
 )
 logger = logging.getLogger(__name__)
-logger.info("=== DEPLOY MARKER v3: template_dir via __file__ ===")
+logger.info("=== DEPLOY MARKER v4: begemotik single-template flow ===")
 
-PROCEDURE_TEMPLATES: dict[str, dict[str, str | list[str]]] = {
-    "Хирургия - удаление зуба": {
-        "key": "surgery_tooth_extraction",
-        "filenames": [
-            "СОГЛАСИЕ на хирургию удаления зуба.docx",
-            "СОГЛАСИЕ на хирургию удаление зуба.docx",
-        ],
-    },
-    "Терапия - лечение под седацией (севоран)": {
-        "key": "therapy_sedation",
-        "filenames": [
-            "Согласие на седацию.docx",
-            "согласие на седацию.docx",
-            "согласие на седацию.doc",
-        ],
-    },
-    "Терапия - лечение несовершеннолетних, согласие опекуна": {
-        "key": "therapy_guardian_consent",
-        "filenames": [
-            "Согласие опекуна.docx",
-        ],
-    },
-    "Терапия - лечение (взрослые и дети), согласие представителя": {
-        "key": "therapy_guardian_consent",
-        "filenames": [
-            "СОГЛАСИЕ на местную инъекционную АНЕСТЕЗИЮ.docx",
-        ],
-    },
-    "Имплантация - Договор на имплантацию": {
-        "key": "implantation_contract",
-        "filenames": [
-            "Договор на имплантацию.docx",
-            "1. ДОГОВОР на ИМПЛАНТАЦИЮ.docx",
-            "1. ДОГОВОР на ИМПЛАНТАЦИЮ.doc",
-        ],
-    },
-    "Имплантация - Согласие на имплантацию": {
-        "key": "implantation_consent",
-        "filenames": [
-            "Согласие на имплантацию.docx",
-            "1.1. СОГЛАСИЕ на имплантацию.docx",
-        ],
-    },
-    "Имплантация - Дополнительное соглашение к договору имплантации о гарантии": {
-        "key": "implantation_warranty_addendum",
-        "filenames": [
-            "Дополнительное соглашение к договору имплантации о гарантии.docx",
-            "ДОПОЛНИТЕЛЬНОЕ СОГЛАШЕНИЕ к дговору имплантация о гарантии.docx",
-        ],
-    },
-    "Терапия - Согласие на эндодонтическое лечение": {
-        "key": "therapy_endodontic_consent",
-        "filenames": [
-            "Согласие на эндодонтическое лечение.docx",
-            "СОГЛАСИЕ на ЭНДОдонтическое лечение.docx",
-        ],
-    },
-    "Терапия - Согласие на лечение кариеса": {
-        "key": "therapy_caries_consent",
-        "filenames": [
-            "Согласие на лечение кариеса.docx",
-            "СОГЛАСИЕ на терапию (лечение кариеса).docx",
-        ],
-    },
-    "Терапия - Согласие на реставрацию зубов": {
-        "key": "therapy_restoration_consent",
-        "filenames": [
-            "Согласие на реставрацию зубов.docx",
-            "СОГЛАСИЕ на РЕСТАВРАЦИЮ зубов.docx",
-        ],
-    },
-    "Терапия - Согласие на профессиональную чистку": {
-        "key": "therapy_cleaning_consent",
-        "filenames": [
-            "Согласие на профессиональную чистку.docx",
-            "СОГЛАСИЕ на профессиональную ЧИСТКУ.docx",
-        ],
-    },
-    "Терапия - Согласие на повторное эндодонтическое вмешательство": {
-        "key": "therapy_repeat_endodontic_consent",
-        "filenames": [
-            "Согласие на повторное эндодонтическое вмешательство.docx",
-            "СОГЛАСИЕ на повторное эндодонтическое вмешательство.docx",
-        ],
-    },
-    "Терапия - Согласие на глубокий кариес, переходящий в пульпит": {
-        "key": "therapy_deep_caries_consent",
-        "filenames": [
-            "Согласие на глубокий кариес, переходящий в пульпит.docx",
-            "СОГЛАСИЕ на глубокий кариес переход в пульпит.docx",
-        ],
-    },
-}
+BEGEMOTIK_TEMPLATE_NAME = "begemotik_template.docx"
 
-app = FastAPI(title="Electronic Consent API", version="1.0.0")
+app = FastAPI(title="Electronic Consent API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -128,6 +36,7 @@ app.add_middleware(
     allow_methods=["POST", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
+
 @app.on_event("startup")
 async def on_startup():
     start_scheduler()
@@ -159,103 +68,82 @@ def health() -> dict:
 
 
 @app.post("/api/v1/agreements")
-async def create_agreement(body: AgreementRequest):
+async def create_agreement(body: BegemotikAgreementRequest):
     """
-    Accept form data, generate DOCX+PDF set, upload DOCX+PDF to Google Drive,
-    and return PDF to the client as a downloadable file.
+    Accept form data, generate DOCX+PDF, upload to Google Drive,
+    and return DOCX to the client as a downloadable file.
     """
     agreement_id = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
-    logger.info("Processing agreement %s for %s", agreement_id, body.full_name)
+    patient_full_name = " ".join(filter(None, [body.surname, body.name, body.last_name]))
+    logger.info("Processing agreement %s for %s", agreement_id, patient_full_name)
 
     tmp_dir = Path(tempfile.mkdtemp(prefix="agreement_"))
     try:
-        # 1. Pick template by selected procedure
         template_dir = Path(__file__).parent / "templates"
-        template_config = PROCEDURE_TEMPLATES.get(body.procedure)
-        if not template_config:
-            raise HTTPException(status_code=400, detail="Unsupported procedure selected.")
+        template_path = template_dir / BEGEMOTIK_TEMPLATE_NAME
+        logger.info("Files in template_dir: %s", [f.name for f in template_dir.iterdir()])
 
-        template_key = str(template_config["key"])
-        logger.info("Files actually in template_dir: %s", [f.name for f in template_dir.iterdir()])
-        resolved_template: Path | None = None
-        for candidate in template_config["filenames"]:
-            path = template_dir / str(candidate)
-            if path.exists():
-                resolved_template = path
-                break
-
-        if not resolved_template:
-            logger.error("Template not found for procedure '%s' in %s", body.procedure, template_dir)
+        if not template_path.exists():
+            logger.error("Template not found: %s", template_path)
             raise HTTPException(
                 status_code=500,
-                detail=f"Document template not found for '{body.procedure}'. Please contact support.",
+                detail=f"Document template '{BEGEMOTIK_TEMPLATE_NAME}' not found. Please contact support.",
             )
 
-        patient_file_base = build_patient_filename_base(body.iin, body.full_name)
+        # Build allergy context values
+        if body.has_allergy and body.allergy_text:
+            allergy_value = f"Есть аллергия на: {body.allergy_text}"
+            no_allergy_value = ""
+        else:
+            allergy_value = ""
+            no_allergy_value = "Нет аллергии"
 
-        # Determine representative_full_name based on degree_of_kinship
-        child_degree_values = {"на моего ребенка", "на лицо, чьим законным представителем я являюсь"}
-        representative_full_name = ""
-        if body.degree_of_kinship in child_degree_values:
-            # When it's for a child, the representative is the consent giver (full_name)
-            representative_full_name = body.full_name
-        # When it's "на себя", representative_full_name stays empty
+        patient_file_base = build_patient_filename_base(body.iin, patient_full_name)
+        output_basename = f"{patient_file_base}_begemotik_consent"
 
-        # 2. Generate DOCX and convert it to PDF
-        output_basename = f"{patient_file_base}_{template_key}"
         try:
-            docx_path = generate_docx(
-                template_path=resolved_template,
-                full_name=body.full_name,
-                phone=body.phone,
+            docx_path = generate_begemotik_docx(
+                template_path=template_path,
                 iin=body.iin,
-                allergy=body.allergy,
+                surname=body.surname,
+                name=body.name,
+                last_name=body.last_name,
+                gender=body.gender,
+                birthdate=body.birthdate,
+                phone=body.phone,
+                has_kinship=body.has_kinship,
+                surname_kinship=body.surname_kinship,
+                name_kinship=body.name_kinship,
+                last_name_kinship=body.last_name_kinship,
+                degree_of_kinship=body.degree_of_kinship,
+                allergy_value=allergy_value,
+                no_allergy_value=no_allergy_value,
                 procedure=body.procedure,
                 signature_base64=body.signature_base64,
-                degree_of_kinship=body.degree_of_kinship,
-                guardian_relationship=body.guardian_relationship,
-                name_surname_of_child=body.name_surname_of_child,
-                name_surname_patient=body.name_surname_patient,
-                date_of_birth=body.date_of_birth,
-                id_number=body.id_number,
-                id_authority=body.id_authority,
-                id_date_of_issue=body.id_date_of_issue,
-                adress=body.adress,
-                degree_of_kinship_mother_father_guardin=body.degree_of_kinship_mother_father_guardin,
-                contact_name_surname_1=body.contact_name_surname_1,
-                contact_phones_1=body.contact_phones_1,
-                contact_name_surname_2=body.contact_name_surname_2,
-                contact_phones_2=body.contact_phones_2,
-                contact_name_surname_3=body.contact_name_surname_3,
-                contact_phones_3=body.contact_phones_3,
                 agreement_id=agreement_id,
                 output_basename=output_basename,
                 output_dir=tmp_dir,
-                representative_full_name=representative_full_name,
             )
         except Exception as exc:
-            logger.exception("DOCX generation failed for procedure '%s'", body.procedure)
+            logger.exception("DOCX generation failed")
             raise HTTPException(status_code=500, detail=f"Document generation failed: {exc}") from exc
 
         try:
             pdf_path = convert_to_pdf(docx_path, tmp_dir)
         except Exception as exc:
-            logger.exception("PDF conversion failed for procedure '%s'", body.procedure)
+            logger.exception("PDF conversion failed")
             raise HTTPException(status_code=500, detail=f"PDF conversion failed: {exc}") from exc
 
-        docx_paths = [docx_path]
-        pdf_paths = [pdf_path]
-
-        # 3. Upload DOCX+PDF files to Google Drive (best-effort — don't fail on Drive error)
+        # Upload to Google Drive (best-effort)
         drive_error: str | None = None
         if settings.google_drive_folder_id:
             if settings.oauth_credentials_info:
                 try:
                     upload_documents(
-                        file_paths=[*docx_paths, *pdf_paths],
+                        file_paths=[docx_path, pdf_path],
                         folder_id=settings.google_drive_folder_id,
                         iin=body.iin,
-                        full_name=body.full_name,
+                        full_name=patient_full_name,
                         oauth_credentials_info=settings.oauth_credentials_info,
                     )
                 except Exception as exc:
@@ -266,15 +154,14 @@ async def create_agreement(body: AgreementRequest):
         else:
             logger.warning("GOOGLE_DRIVE_FOLDER_ID not set — skipping Drive upload")
 
-        # 4. Return PDF to client
         headers: dict[str, str] = {}
         if drive_error:
             headers["X-Drive-Error"] = drive_error[:200]
 
         return FileResponse(
-            path=str(pdf_path),
-            media_type="application/pdf",
-            filename="Vienna Dental.pdf",
+            path=str(docx_path),
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            filename="Begemotik_consent.docx",
             headers=headers,
             background=_cleanup_background(tmp_dir),
         )
