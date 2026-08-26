@@ -283,8 +283,18 @@ def generate_begemotik_docx(
 
     # signature_kinship: representative's FIO when present, else empty
     signature_kinship = rep_full_name if has_kinship else ""
-
+    
+def _resolve_recipient_label(has_kinship: bool, degree_of_kinship: str) -> str:
+    if not has_kinship:
+        return "себе"
+    if degree_of_kinship == "ребенок":
+        return "ребенку"
+    if degree_of_kinship == "лицо, чьим законным представителем я являюсь":
+        return "подопечному"
+    return "родственнику"  # fallback, см. вопрос ниже
+    
     context = {
+        "recipient_label": _resolve_recipient_label(has_kinship, degree_of_kinship),
         "iin": iin,
         "surname": surname,
         "name": name,
