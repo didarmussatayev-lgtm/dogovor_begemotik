@@ -15,8 +15,7 @@ from .config import settings
 from .docgen import convert_to_pdf, generate_begemotik_docx
 from .drive import build_patient_filename_base, upload_documents
 from .models import BegemotikAgreementRequest
-from .reminders import handle_incoming_whatsapp, start_scheduler
-from .reminders import send_daily_reminders 
+
 #удалить строку выше
 logging.basicConfig(
     level=settings.log_level.upper(),
