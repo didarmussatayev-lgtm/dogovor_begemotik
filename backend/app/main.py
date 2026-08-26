@@ -16,7 +16,7 @@ from .docgen import convert_to_pdf, generate_begemotik_docx
 from .drive import build_patient_filename_base, upload_documents
 from .models import BegemotikAgreementRequest
 
-#удалить строку выше
+
 logging.basicConfig(
     level=settings.log_level.upper(),
     format="%(asctime)s %(levelname)s %(name)s — %(message)s",
@@ -46,20 +46,6 @@ async def whatsapp_webhook(request: Request):
     await handle_incoming_whatsapp(payload)
     return {"status": "ok"}
     
-#УДАЛИТЬ КОГДА НАСТОЯЩИЙ начало
-@app.get("/api/v1/debug/config-check")
-def config_check():
-    return {
-        "cliniccards_token_set": bool(settings.cliniccards_token),
-        "evolution_api_url_set": bool(settings.evolution_api_url),
-        "evolution_api_key_set": bool(settings.evolution_api_key),
-        "evolution_instance_set": bool(settings.evolution_instance),
-    }
-@app.post("/api/v1/debug/trigger-reminders")
-async def trigger_reminders():
-    await send_daily_reminders()
-    return {"status": "triggered"}
-#УДАЛИТЬ КОГДА НАСТОЯЩИЙ конец
 
 @app.get("/health")
 def health() -> dict:
@@ -99,7 +85,16 @@ async def create_agreement(body: BegemotikAgreementRequest):
 
         patient_file_base = build_patient_filename_base(body.iin, patient_full_name)
         output_basename = f"{patient_file_base}_begemotik_consent"
+    except Exception as exc:
+        logger.exception("DOCX generation failed")
+        raise HTTPException(status_code=500, detail=f"Document generation failed: {exc}") from exc
 
+    if docx_path is None:
+        logger.error("generate_begemotik_docx returned None without raising — check deployed docgen.py version")
+        raise HTTPException(status_code=500, detail="Document generation returned no file (docx_path is None)")
+
+    try:
+        pdf_path = convert_to_pdf(docx_path, tmp_dir)
         try:
             docx_path = generate_begemotik_docx(
                 template_path=template_path,
