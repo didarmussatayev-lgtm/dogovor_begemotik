@@ -530,7 +530,7 @@ async function handleSubmit(e) {
     a.href = url;
     const disposition = response.headers.get('Content-Disposition') ?? '';
     const match = disposition.match(/filename[^;=\n]*=(['"]?)([^'";\n]+)\1/);
-    a.download = match ? match[2] : 'Begemotik_consent.docx';
+    a.download = match ? match[2] : 'med_centr_begemotik.pdf';
     document.body.appendChild(a);
     a.click();
     a.remove();
