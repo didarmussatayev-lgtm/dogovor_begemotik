@@ -159,9 +159,9 @@ async def create_agreement(body: BegemotikAgreementRequest):
             headers["X-Drive-Error"] = drive_error[:200]
 
         return FileResponse(
-            path=str(docx_path),
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            filename="Begemotik_consent.docx",
+            path=str(pdf_path),
+            media_type="application/pdf",
+            filename="med_centr_begemotik.pdf",
             headers=headers,
             background=_cleanup_background(tmp_dir),
         )
